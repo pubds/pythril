@@ -1,5 +1,7 @@
 # pythril
-Python data science tools for large data sets.
+Python data science tools for large data sets. 
+
+The name is a play on mithril, a precious ore in Middle-earth, and data mining.
 
 ## Example
 

@@ -16,7 +16,9 @@ def serialize_key(key) -> str:
 def deserialize_key(key: str):
     """Convert a string representation of a key to a simple object."""
     try:
-        key = ast.literal_eval(key)
+        lit = ast.literal_eval(key)
+        if isinstance(lit, Hashable):
+            key = lit
     except ValueError:
         pass
     return key
@@ -27,6 +29,14 @@ class ObjectCounter(Counter):
 
     Keys are the counted objects.
     """
+
+    def __add__(self, other):
+        # Return the appropriate subclass of the counter.
+        scls = self.__class__
+        ocls = other.__class__
+        cls = scls if issubclass(scls, ocls) else ocls
+        return cls(super().__add__(other))
+
 
     def add(self, val):
         """Increment the count for the input value. Each value must be
@@ -49,18 +59,13 @@ class ObjectCounter(Counter):
         If a deserialized object is not hashable, it is left in serialized form.
         """
         trans = deserializer or deserialize_key
-        counter = cls()
-        # dobj = {dk if isinstance(dk, Hashable) else k: v for k, v in
-        for key, count in obj.items():
-            dkey = trans(key)
-            key = dkey if isinstance(dkey , Hashable) else key
-            counter[key] = count
-        return counter
+        return cls({trans(k): v for k, v in obj.items()})
 
     def to_json(self, serializer=None) -> dict:
         """Serialize all keys into their string representations."""
         trans = serializer or serialize_key
         return {trans(k): v for k, v in self.items()}
+
 
 
 class HashCounter(ObjectCounter):
@@ -107,3 +112,15 @@ class DictCounter(ObjectCounter):
         keys = self.header or val.keys()
         vals = tuple(val.get(k) for k in keys)
         self[vals] += 1
+
+    def rows(self):
+        """Convert the counts to an iterable of dicts, with key values
+        re-assigned to their appropriate header keys.
+
+        """
+        if self.header is None:
+            raise ValueError('header cannot be None.')
+        header = list(enumerate(self.header))
+        return ({'count': v, **{f: k[i] for i, f in header}} for k, v in self.items())
+
+
